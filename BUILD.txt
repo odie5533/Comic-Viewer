@@ -1,0 +1,31 @@
+Requirements
+============
+NSIS: (nsis-2.46-setup.exe)
+	   http://sourceforge.net/projects/nsis/files/NSIS%202/2.46/nsis-2.46-setup.exe/download
+ResHack: (must be in the root build folder)
+	http://www.angusj.com/resourcehacker/
+
+I installed the following to C:\Python27_32\
+    Python 2.7.1 (python-2.7.1.msi)
+		http://www.python.org/ftp/python/2.7.1/python-2.7.1.msi
+    Pygame (pygame-1.9.2pre.win32-py2.7.exe)
+		http://www.lfd.uci.edu/~gohlke/pythonlibs/#pygame
+    Pycairo (pycairo-1.10.0.win32-py2.7.exe)
+		http://www.lfd.uci.edu/~gohlke/pythonlibs/#pycairo
+    PyWin32 (pywin32-216.win32-py2.7.exe)
+		http://www.lfd.uci.edu/~gohlke/pythonlibs/#pywin32
+
+Compiling
+=========
+The program is split into the Comic Viewer written in Python, the installer
+written in NSIS, and the ComicThumbnailProvider written in C++.
+The ComicThumbnailProvider must be compiled separately in MSVS2010 and the
+compiled DLL files should be copied to the src/thumbnail_provider directory.
+
+After the DLL files are copied, src/Installer/rebuild_all.bat should be run
+which will compile the Python program to an exectuable and create the NSIS
+installer.
+
+To test NSIS scripts, use 'src/Installer/make setup.bat' which only makes the
+installer from the already compiled python executable. To test the Python
+script, drag-and-drop comics on to src/debug.cmd.
