@@ -1,0 +1,67 @@
+body {
+  font-family: "Comic Sans MS";
+  background-color: #232323;
+  color: #FFFFFF;
+}
+
+/* Customize container */
+@media (min-width: 960px) {
+  .container {
+    max-width: 960px;
+  }
+}
+
+.navbar {
+  background: url('../images/header_repeat.png') top repeat-x;
+  border: 0;
+  padding-top: 3px;
+}
+
+.github_img{
+  margin-right: 15px;
+}
+
+.content {
+  padding-top: 35px;
+  padding-bottom: 35px;
+  background: #232323 url('../images/background.png') top no-repeat;
+  text-align: center;
+  font-size: 14pt;
+}
+
+.logo {
+  padding-bottom: 60px;
+  text-align: left;
+}
+
+.bubble {
+  margin-top: -35px;
+}
+
+.leadtext {
+  text-align: left;
+  padding-bottom: 25px;
+}
+
+.shiny {
+  padding-top: 30px;
+  padding-bottom: 15px;
+}
+
+.download {
+  margin-bottom: 30px;
+}
+
+.screens img {
+  margin-right: 15px;
+  margin-top: 15px;
+}
+
+.footer {
+  height: 120px;
+  background: url('../images/footer.png') repeat-x;
+  text-align: center;
+  font: 10pt sans-serif;
+  padding-top: 60px;
+  color: #fff;
+}
