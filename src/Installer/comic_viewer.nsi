@@ -33,7 +33,7 @@ SetCompressor lzma
 ; Welcome page
 !insertmacro MUI_PAGE_WELCOME
 ; License page
-!insertmacro MUI_PAGE_LICENSE "..\LICENSE.txt"
+!insertmacro MUI_PAGE_LICENSE "..\..\gpl-3.0.txt"
 ; Components page
 !insertmacro MUI_PAGE_COMPONENTS
 ; Directory page

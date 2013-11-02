@@ -142,7 +142,7 @@ class ComicViewer:
         self.blit_stats()
         self.ticks_till_blit = TICKS_FOR_STATS
     
-    def scale_image(self, image, scale_sz):
+    def scale_pyimage(self, image, scale_sz):
         scale_sz = [int(i) for i in scale_sz]
         if image.get_bitsize() == 8:
             image = image.convert(24)
@@ -152,14 +152,7 @@ class ComicViewer:
             image = pygame.transform.scale(image, scale_sz)
         return image
     
-
-    """
-    Blits the current image onto the screen accounting for x and y offset,
-    along with scaling and centering
-    """
-    def blit_image(self):
-        x = self.xpos
-        y = self.ypos
+    def scale_image(self):
         self.image = self.filecacher.load_image_relative()
         client_rect = self.GetClientRect()
         client_sz = client_rect.size
@@ -173,34 +166,45 @@ class ComicViewer:
         if width > client_sz[0]:
             scale_factor = float(client_sz[0]) / width
             scale_sz1 = (self.image.get_size()[0] * scale_factor, self.image.get_size()[1] * scale_factor)
-            self.image = self.scale_image(self.image, scale_sz1)
+            self.image = self.scale_pyimage(self.image, scale_sz1)
             if self.twoup:
                 scale_sz2 = (self.image2.get_size()[0] * scale_factor, self.image2.get_size()[1] * scale_factor)
-                self.image2 = self.scale_image(self.image2, scale_sz2)
+                self.image2 = self.scale_pyimage(self.image2, scale_sz2)
 
-        self.screen.fill(0) # fill screen w/ black
-        
+    """
+    Blits the current image onto the screen accounting for x and y offset,
+    along with scaling and centering
+    """
+    def blit_image(self):
+        self.scale_image()
+
         img_rect = self.image.get_rect()
-        img_rect.move_ip(x, y) # shift image according to scroll
+        img_rect.move_ip(self.xpos, self.ypos) # shift image according to scroll
         if self.twoup:
             img_rect2 = self.image.get_rect()
-            img_rect2.move_ip(x, y)
+            img_rect2.move_ip(self.xpos, self.ypos)
         # performs an x-center only if fullscreen on non-Windows OS
         # On Windows, however, always centers
         if self.fullscreen or os.name == 'nt':
+            client_rect = self.GetClientRect()
             img_rect.centerx = client_rect.centerx
             if self.twoup:
                 img_rect.centerx -= img_rect.width/2
                 img_rect2.centerx = client_rect.centerx + img_rect2.width/2
-                
+
+        self.screen.fill(0) # fill screen w/ black                
         self.screen.blit(self.image, img_rect) # blit image to specific coordinates
         if self.twoup:
             self.screen.blit(self.image2, img_rect2)
         img_size = self.image.get_size()
         client_size = self.GetClientRect().size
         # If we are not at the bottom and the image is bigger than the client
-        #if self.ypos != client_size[1] - img_size[1] and img_size[1] > client_size[1]:
+        """
+        # Draw a green square:
+        if self.ypos != client_size[1] - img_size[1] and img_size[1] > client_size[1]:
             #self.screen.fill(pygame.Color('green'), rect=((client_size[0]+img_size[0])/2,client_size[1]-10,10,10))
+        """
+        # Draw a green line
         if self.ypos == client_size[1] - img_size[1] and img_size[1] > client_size[1]:
             self.screen.fill(pygame.Color('green'), rect=(0,client_size[1]-1,client_size[0],1))
             
@@ -271,6 +275,11 @@ class ComicViewer:
         if img_sz[1] < sz[1]:
             self.ypos = 0
         self.blit_image()
+        
+    def shift_image_to_bottom(self):
+        img_sz = self.image.get_size()
+        sz = self.GetClientRect().size 
+        self.ypos = sz[1] - img_sz[1]
 
     # Scroll height is added to image's position to move image on the client
     @staticmethod
@@ -289,7 +298,7 @@ class ComicViewer:
 
     def scroll_image_up(self, percent=0.4):
         if self.ypos == 0: # Scrolling up while at the top of an image
-            self.prev_image()
+            self.prev_image(bottom=True)
             return
         img_sz = self.image.get_size()
         client_sz = self.GetClientRect().size
@@ -334,7 +343,7 @@ class ComicViewer:
     def load_archive(self, filename):
         self.filecacher.load_archive(filename)
         pygame.display.set_caption(os.path.basename(filename))
-        self.image = self.filecacher.goto_home()
+        self.filecacher.goto_home()
         self.reset_image()
         
     def load_next_archive(self):
@@ -350,28 +359,28 @@ class ComicViewer:
         
     def next_image(self):
         skip = 2 if self.twoup else 1
-        self.image = self.filecacher.progress_image(True, skip)
+        self.filecacher.progress_image(True, skip)
         self.reset_image()
         self.blit_stats_temporary()
         
-    def prev_image(self):
+    def prev_image(self, bottom=False):
         skip = 2 if self.twoup else 1
         home = self.filecacher.at_home() # needs to be before we progress_image
-        self.image = self.filecacher.progress_image(False, skip)
+        self.filecacher.progress_image(False, skip)
+        self.scale_image()
         self.xpos = 0
         self.ypos = 0
-        if not home:
-            self.shift_image(y=-99999) # this calls blit_image()
-        else:
-            self.blit_image()
+        if bottom and not home:
+            self.shift_image_to_bottom()
+        self.blit_image()
         self.blit_stats_temporary()
         
     def progress_image_max(self, end=True):
         """ Goes to the home or end """
         if end:
-            self.image = self.filecacher.goto_end()
+            self.filecacher.goto_end()
         else:
-            self.image = self.filecacher.goto_home()
+            self.filecacher.goto_home()
         self.reset_image()
         self.blit_stats_temporary()
 
