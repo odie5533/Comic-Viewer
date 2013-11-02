@@ -124,12 +124,12 @@ class FileCacher:
             if name in self.images:
                 del self.images[name]
 
-    def next_image(self):
-        self.idx += 1
+    def next_image(self, skip=1):
+        self.idx += skip
         return self.goto_index(self.idx)
 
-    def prev_image(self):
-        self.idx -= 1
+    def prev_image(self, skip=1):
+        self.idx -= skip
         return self.goto_index(self.idx)
 
     def goto_end(self):

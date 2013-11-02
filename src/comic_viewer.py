@@ -53,12 +53,13 @@ class ComicViewer:
         self.clock = pygame.time.Clock()
         pygame.init()
         self.desktop_size = pygame.display.list_modes()[0]
-        self.screen = pygame.display.set_mode(
-                self.desktop_size, pygame.RESIZABLE, 32)
+        self.screen = pygame.display.set_mode(self.desktop_size,
+                                              pygame.RESIZABLE, 32)
         self.ticks_till_blit = None
         self.load_archive(archive_name)
 
         if os.name == 'nt':
+            # Move and resize the window to a nice default aspect ratio
             wrect = self.GetWindowRect()
             hwnd = pygame.display.get_wm_info()['window']
 
@@ -123,11 +124,11 @@ class ComicViewer:
     Crappy support for non-Windows, only works well fullscreen
     """
     def blit_stats(self):
-        max = len(self.filecacher)
+        end = len(self.filecacher)
         cur = self.filecacher.idx + 1
 
         font = pygame.font.SysFont(STATUS_FONT, STATUS_FONT_SIZE)
-        page_num = font.render("%d / %d" % (cur,max), 1, (0,0,0), (255,255,255))
+        page_num = font.render("%d / %d" % (cur,end), 1, (0,0,0), (255,255,255))
         line_bot = page_num.get_rect()
         line_bot.bottomright = self.GetClientRect().bottomright
 
@@ -282,7 +283,7 @@ class ComicViewer:
         # off screen divided by how many scroll points there are
         return offscreen_height / scroll_pts
 
-    def handle_scroll_image_up(self, percent):
+    def scroll_image_up(self, percent=0.4):
         # Scrolling up while at the top of an image:
         if self.ypos == 0:
             self.prev_image()
@@ -292,7 +293,7 @@ class ComicViewer:
         scroll_height = self.calc_scroll_height(img_sz[1], client_sz[1], percent)
         self.shift_image(y=scroll_height)
 
-    def handle_scroll_image_down(self, percent):
+    def scroll_image_down(self, percent=0.4):
         img_sz = self.image.get_size()
         client_sz = self.GetClientRect().size
         # If at the bottom of the image OR
@@ -310,32 +311,13 @@ class ComicViewer:
         scroll_height = self.calc_scroll_height(img_sz[1], client_sz[1], percent)
         self.shift_image(y=-scroll_height)
 
-    def scroll_image(self, up=True, percent=0.4):
-        img_sz = self.image.get_size()
-        client_sz = self.GetClientRect().size
-        if up:
-            self.handle_scroll_image_up(percent)
-        else:
-            self.handle_scroll_image_down(percent)
-        
-    def load_next_archive(self):
-        current_dir = os.path.dirname(self.filecacher.filename)
-        files = os.listdir(current_dir)
-        files = [f for f in files if re.match('^.*(cbr|cbz|rar|zip)$', f)]
-        idx = files.index(os.path.basename(self.filecacher.filename))
-        if idx + 1 >= len(files):
-            self.blit_textbox(["This is the last archive in the folder."])
-            return
-        next_file = os.path.join(current_dir, files[idx+1])
-        self.load_archive(next_file)
-
     def browse_new_images(self):
         filename = None
         if os.name == 'nt':
             try:
                 filename,_,_ = win32gui.GetOpenFileNameW(
                     Filter="Comic archives (*.cbz *.cbr)\0*.cbr;*.cbz\0All Files (*.*)\0*.*\0")
-            except Exception as e:
+            except Exception:
                 pass
             hwnd = pygame.display.get_wm_info()['window']
             win32gui.SetFocus(hwnd)
@@ -353,23 +335,32 @@ class ComicViewer:
         self.image = self.filecacher.goto_home()
         self.reset_image()
         
-    def next_image(self):
-        if self.twoup:
-            self.image = self.filecacher.goto_index(self.filecacher.idx+2)
+    def load_next_archive(self):
+        current_dir = os.path.dirname(self.filecacher.filename)
+        files = os.listdir(current_dir)
+        files = [f for f in files if re.match('^.*(cbr|cbz|rar|zip)$', f)]
+        idx = files.index(os.path.basename(self.filecacher.filename))
+        if idx + 1 >= len(files):
+            self.blit_textbox(["This is the last archive in the folder."])
+            return
+        next_file = os.path.join(current_dir, files[idx+1])
+        self.load_archive(next_file)
+    
+    def progress_image(self, gonext=True):
+        skip = 2 if self.twoup else 1
+        if gonext:
+            self.image = self.filecacher.next_image(skip)
         else:
-            self.image = self.filecacher.next_image()
+            self.image = self.filecacher.prev_image(skip)
         self.reset_image()
         self.blit_stats()
         self.ticks_till_blit = TICKS_FOR_STATS
         
+    def next_image(self):
+        self.progress_image(True)
+        
     def prev_image(self):
-        if self.twoup:
-            self.image = self.filecacher.goto_index(self.filecacher.idx-2)
-        else:
-            self.image = self.filecacher.prev_image()
-        self.reset_image()
-        self.blit_stats()
-        self.ticks_till_blit = TICKS_FOR_STATS
+        self.progress_image(False)
         
 
     """
@@ -398,7 +389,7 @@ class ComicViewer:
         self.blit_image()
         
         while True:
-            time_passed = self.clock.tick(50)
+            self.clock.tick(50)
             if self.ticks_till_blit is not None:
                 if self.ticks_till_blit > 0:
                     self.ticks_till_blit -= 1
@@ -420,9 +411,9 @@ class ComicViewer:
                 if moving == "prev-image":
                     self.prev_image()
                 if moving == "scroll-up":
-                    self.scroll_image(True)
+                    self.scroll_image_up()
                 if moving == "scroll-down":
-                    self.scroll_image(False)
+                    self.scroll_image_down()
 
             ##################
             # Event Handling #
@@ -432,10 +423,12 @@ class ComicViewer:
                     pygame.quit()
                     return
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_PAGEDOWN:
+                    if event.key == pygame.K_PAGEDOWN or\
+                            event.key == pygame.K_RIGHT:
                         moving = "next-image"
                         self.next_image()
-                    elif event.key == pygame.K_PAGEUP:
+                    elif event.key == pygame.K_PAGEUP or\
+                            event.key == pygame.K_LEFT:
                         moving = "prev-image"
                         self.prev_image()
                     elif event.key == pygame.K_HOME:
@@ -464,10 +457,10 @@ class ComicViewer:
                         return
                     elif event.key == pygame.K_DOWN:
                         moving = 'scroll-down'
-                        self.scroll_image(False)
+                        self.scroll_image_down()
                     elif event.key == pygame.K_UP:
                         moving = 'scroll-up'
-                        self.scroll_image(True)
+                        self.scroll_image_up()
                     elif event.key == pygame.K_m:
                         self.minimize_window()
                     elif event.key == pygame.K_o:
@@ -485,9 +478,9 @@ class ComicViewer:
                         self.blit_image()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 4: # scrollwheel up
-                        self.scroll_image(True, percent=0.2)
+                        self.scroll_image_up(percent=0.2)
                     if event.button == 5: # scrollwheel down
-                        self.scroll_image(False, percent=0.2)
+                        self.scroll_image_down(percent=0.2)
                 elif event.type == pygame.VIDEORESIZE:
                     # New window size means the image needs to be rescaled
                     self.blit_image()
