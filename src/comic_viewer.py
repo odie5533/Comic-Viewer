@@ -16,7 +16,6 @@ import pygame
 import pygame._view
 import os
 import sys
-import thread
 import re
 from file_cacher import FileCacher
 
@@ -27,7 +26,7 @@ else:
     tkFileDialog=__import__("tkFileDialog")
     
 
-TICKS_FOR_STATS = 15 # ticks to keep stats onscreen after changing image
+TICKS_FOR_STATS = 20 # ticks to keep stats onscreen after changing image
 STATUS_FONT = "Georgia"
 STATUS_FONT_SIZE = 12
 
@@ -139,6 +138,10 @@ class ComicViewer:
         self.screen.blit(page_num, line_bot)
         self.screen.blit(status_line, line_top)
         
+    def blit_stats_temporary(self):
+        self.blit_stats()
+        self.ticks_till_blit = TICKS_FOR_STATS
+    
     def scale_image(self, image, scale_sz):
         scale_sz = [int(i) for i in scale_sz]
         if image.get_bitsize() == 8:
@@ -148,6 +151,7 @@ class ComicViewer:
         except ValueError:
             image = pygame.transform.scale(image, scale_sz)
         return image
+    
 
     """
     Blits the current image onto the screen accounting for x and y offset,
@@ -156,13 +160,13 @@ class ComicViewer:
     def blit_image(self):
         x = self.xpos
         y = self.ypos
-        self.image = self.filecacher.load_index()
+        self.image = self.filecacher.load_image_relative()
         client_rect = self.GetClientRect()
         client_sz = client_rect.size
         
         width = self.image.get_size()[0]
         if self.twoup:
-            self.image2 = self.filecacher.load_index(self.filecacher.idx + 1)
+            self.image2 = self.filecacher.load_image_relative(skip=1)
             width += self.image2.get_size()[0]
         
         # Fit oversized widths to client width
@@ -284,8 +288,7 @@ class ComicViewer:
         return offscreen_height / scroll_pts
 
     def scroll_image_up(self, percent=0.4):
-        # Scrolling up while at the top of an image:
-        if self.ypos == 0:
+        if self.ypos == 0: # Scrolling up while at the top of an image
             self.prev_image()
             return
         img_sz = self.image.get_size()
@@ -302,16 +305,15 @@ class ComicViewer:
         if self.ypos == client_sz[1] - img_sz[1] or img_sz[1] < client_sz[1]:
             # If on the last image and at the bottom
             # then just show stats and don't move
-            if self.filecacher.idx + 1 == len(self.filecacher):
-                self.ticks_till_blit = TICKS_FOR_STATS
-                self.blit_stats()
+            if self.filecacher.at_end():
+                self.blit_stats_temporary()
                 return
             self.next_image()
             return
         scroll_height = self.calc_scroll_height(img_sz[1], client_sz[1], percent)
         self.shift_image(y=-scroll_height)
 
-    def browse_new_images(self):
+    def browse_new_archive(self):
         filename = None
         if os.name == 'nt':
             try:
@@ -336,6 +338,7 @@ class ComicViewer:
         self.reset_image()
         
     def load_next_archive(self):
+        """ Loads the next archive in the current path """
         current_dir = os.path.dirname(self.filecacher.filename)
         files = os.listdir(current_dir)
         files = [f for f in files if re.match('^.*(cbr|cbz|rar|zip)$', f)]
@@ -343,25 +346,34 @@ class ComicViewer:
         if idx + 1 >= len(files):
             self.blit_textbox(["This is the last archive in the folder."])
             return
-        next_file = os.path.join(current_dir, files[idx+1])
-        self.load_archive(next_file)
-    
-    def progress_image(self, gonext=True):
-        skip = 2 if self.twoup else 1
-        if gonext:
-            self.image = self.filecacher.next_image(skip)
-        else:
-            self.image = self.filecacher.prev_image(skip)
-        self.reset_image()
-        self.blit_stats()
-        self.ticks_till_blit = TICKS_FOR_STATS
+        self.load_archive(os.path.join(current_dir, files[idx+1]))
         
     def next_image(self):
-        self.progress_image(True)
+        skip = 2 if self.twoup else 1
+        self.image = self.filecacher.progress_image(True, skip)
+        self.reset_image()
+        self.blit_stats_temporary()
         
     def prev_image(self):
-        self.progress_image(False)
+        skip = 2 if self.twoup else 1
+        home = self.filecacher.at_home() # needs to be before we progress_image
+        self.image = self.filecacher.progress_image(False, skip)
+        self.xpos = 0
+        self.ypos = 0
+        if not home:
+            self.shift_image(y=-99999) # this calls blit_image()
+        else:
+            self.blit_image()
+        self.blit_stats_temporary()
         
+    def progress_image_max(self, end=True):
+        """ Goes to the home or end """
+        if end:
+            self.image = self.filecacher.goto_end()
+        else:
+            self.image = self.filecacher.goto_home()
+        self.reset_image()
+        self.blit_stats_temporary()
 
     """
     Handles key presses and starts preload threads
@@ -371,10 +383,12 @@ class ComicViewer:
         ticks_held = 0
         fast_movement = False
 
-        thread.start_new_thread(self.filecacher.preload, ())
+        self.filecacher.preload_in_thread()
         
         self.blit_image()
         self.blit_help()
+        
+        # Initial event loop to display the help
         show_help = True
         while show_help:
             self.clock.tick(50)
@@ -382,38 +396,41 @@ class ComicViewer:
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     return
-                if event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+                if event.type in [pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN]:
                     show_help = False
             pygame.display.flip()
-                
+            
         self.blit_image()
         
         while True:
             self.clock.tick(50)
+            
+            # This is used to leave the stats up for a short time before
+            # removing them
             if self.ticks_till_blit is not None:
-                if self.ticks_till_blit > 0:
-                    self.ticks_till_blit -= 1
-                else:
+                self.ticks_till_blit -= 1
+                if self.ticks_till_blit < 0:
                     self.ticks_till_blit = None
                     self.blit_image()
 
             #  moving is the current action being performed
-            if moving != None:
+            if moving is not None:
                 ticks_held += 1
-            # ticks held is the number of ticks the button is held for
+            # ticks_held is the number of ticks the button is held for
+            #fast_movement is reached after the button has been held for a while
             if ticks_held > 20:
                 fast_movement = True
-            #fast_movement is reached after the button has been held for a while
+            
+            # In fast_movement, every 3 ticks the action is performed
             if fast_movement and ticks_held > 3:
                 ticks_held = 0
-                if moving == "next-image":
-                    self.next_image()
-                if moving == "prev-image":
-                    self.prev_image()
-                if moving == "scroll-up":
-                    self.scroll_image_up()
-                if moving == "scroll-down":
-                    self.scroll_image_down()
+                moving()
+                
+            """
+            # Alternative behavior:
+            if any([pygame.key.get_pressed()[k] for k in [pygame.K_RSHIFT,
+                                                          pygame.K_LSHIFT]]):
+                self.blit_stats_temporary()"""
 
             ##################
             # Event Handling #
@@ -423,63 +440,54 @@ class ComicViewer:
                     pygame.quit()
                     return
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_PAGEDOWN or\
-                            event.key == pygame.K_RIGHT:
-                        moving = "next-image"
-                        self.next_image()
-                    elif event.key == pygame.K_PAGEUP or\
-                            event.key == pygame.K_LEFT:
-                        moving = "prev-image"
-                        self.prev_image()
-                    elif event.key == pygame.K_HOME:
-                        self.image = self.filecacher.goto_home()
-                        self.reset_image()
+                    key = event.key
+                    if key in [pygame.K_PAGEDOWN, pygame.K_RIGHT]:
+                        moving = self.next_image
+                        moving()
+                    elif key in [pygame.K_PAGEUP, pygame.K_LEFT]:
+                        moving = self.prev_image
+                        moving()
+                    elif key == pygame.K_DOWN:
+                        moving = self.scroll_image_down
+                        moving()
+                    elif key == pygame.K_UP:
+                        moving = self.scroll_image_up
+                        moving()
+                    elif key == pygame.K_HOME:
+                        self.progress_image_max(end=False)
+                    elif key == pygame.K_END:
+                        self.progress_image_max(end=True)
+                    elif key in [pygame.K_LSHIFT, pygame.K_RSHIFT]:
                         self.blit_stats()
-                        self.ticks_till_blit = TICKS_FOR_STATS
-                    elif event.key == pygame.K_END:
-                        self.image = self.filecacher.goto_end()
-                        self.reset_image()
-                        self.blit_stats()
-                        self.ticks_till_blit = TICKS_FOR_STATS
-                    elif event.key in [pygame.K_LSHIFT, pygame.K_RSHIFT]:
-                        self.blit_stats()
-                    elif event.key == pygame.K_w:
+                    elif key == pygame.K_w:
                         if self.fullscreen:
                             self.create_window()
                         else:
                             self.create_fullscreen()
-                        self.fullscreen ^= 1
-                    elif event.key == pygame.K_t:
-                        self.twoup ^= 1
+                        self.fullscreen ^= True
+                    elif key == pygame.K_t:
+                        self.twoup ^= True
                         self.reset_image()
-                    elif event.key == pygame.K_ESCAPE:
-                        pygame.quit()
+                    elif key == pygame.K_ESCAPE:
+                        quit()
                         return
-                    elif event.key == pygame.K_DOWN:
-                        moving = 'scroll-down'
-                        self.scroll_image_down()
-                    elif event.key == pygame.K_UP:
-                        moving = 'scroll-up'
-                        self.scroll_image_up()
-                    elif event.key == pygame.K_m:
+                    elif key == pygame.K_m:
                         self.minimize_window()
-                    elif event.key == pygame.K_o:
-                        self.browse_new_images()
-                    elif event.key == pygame.K_l:
+                    elif key == pygame.K_o:
+                        self.browse_new_archive()
+                    elif key == pygame.K_l:
                         self.load_next_archive()
-                elif event.type == pygame.KEYUP and moving:
+                elif event.type == pygame.KEYUP and moving is not None:
                     # Fast movement finished
                     # after a fast_movement it's best to preload again
-                    thread.start_new_thread(self.filecacher.preload, ())
+                    self.filecacher.preload_in_thread()
                     ticks_held = 0
                     moving = None
                     fast_movement = False
-                    if event.key in [pygame.K_LSHIFT, pygame.K_RSHIFT]:
-                        self.blit_image()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 4: # scrollwheel up
                         self.scroll_image_up(percent=0.2)
-                    if event.button == 5: # scrollwheel down
+                    elif event.button == 5: # scrollwheel down
                         self.scroll_image_down(percent=0.2)
                 elif event.type == pygame.VIDEORESIZE:
                     # New window size means the image needs to be rescaled

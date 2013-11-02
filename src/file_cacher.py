@@ -25,18 +25,23 @@ class FileCacher:
         # order contains a list of filenames in the order which they
         # should be read
         self.order = None
-        #images contains pygame images as a dict with the key being the filename
+        # images contains pygame images as a dict with the key being the filename
         self.images = {}
 
     def __len__(self):
         if self.order is None:
             return 0
         return len(self.order)
+    
+    def at_end(self):
+        return self.idx + 1 == len(self)
+    def at_home(self):
+        return self.idx == 0
 
     """
     Loads an index into memory and returns the loaded pygame image
     """
-    def load_index(self, idx=None):
+    def _load_index(self, idx=None):
         if not self.order:
             print "No images are ordered."
             return
@@ -65,6 +70,9 @@ class FileCacher:
                 self.order.pop(idx)
                 return None
         return self.images[name]
+    
+    def load_image_relative(self, skip=0):
+        return self._load_index(self.idx + skip)
 
     """
     Makes the given index the current image and returns the pygame image
@@ -77,7 +85,7 @@ class FileCacher:
         if self.idx < 0:
             self.idx = 0
         self.garbage_collect()
-        return self.load_index(self.idx)
+        return self._load_index(self.idx)
 
     """
     Loads previous and next images into memory
@@ -91,7 +99,7 @@ class FileCacher:
         if len(self) <= self.max_cache:
             try:
                 for i in range(0, len(self)):
-                    self.load_index(i)
+                    self._load_index(i)
             except Exception as e:
                 print e
                 print "Error performing preload"
@@ -100,13 +108,16 @@ class FileCacher:
             cache = self.max_cache / 2
             try:
                 for i in range(self.idx, self.idx + cache + 1):
-                    self.load_index(i)
+                    self._load_index(i)
                 for i in range(self.idx - cache - 1, self.idx):
-                    self.load_index(i)
+                    self._load_index(i)
             except:
                 print "Error performing preload"
             self.garbage_collect()
         self.lock.release()
+    
+    def preload_in_thread(self):
+        thread.start_new_thread(self.preload, ())
 
     """
     Cleans out old images beyond the cache_ahead and cache_behind limit
@@ -124,13 +135,15 @@ class FileCacher:
             if name in self.images:
                 del self.images[name]
 
-    def next_image(self, skip=1):
-        self.idx += skip
+    def progress_image(self, forward=True, skip=1):
+        self.idx += skip if forward else (-skip)
         return self.goto_index(self.idx)
 
+    def next_image(self, skip=1):
+        return self.progress_image(True, skip)
+
     def prev_image(self, skip=1):
-        self.idx -= skip
-        return self.goto_index(self.idx)
+        return self.progress_image(False, skip)
 
     def goto_end(self):
         self.idx = len(self)-1
@@ -141,7 +154,7 @@ class FileCacher:
         return self.goto_index(self.idx)
 
     """
-    The load_index method does not support loading folder
+    The _load_index method does not support loading folder
     """
     def load_folder(self, folder):
         self.order = os.listdir(folder)
