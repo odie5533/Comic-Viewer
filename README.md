@@ -1,5 +1,8 @@
-Comic Viewer
-============
+# Please visit the website at
+# → [http://odie5533.github.io/Comic-Viewer/](http://odie5533.github.io/Comic-Viewer/) ←
+
+Description
+===========
 Comic Viewer is a comic book reader which displays images contained within
 compressed archives. Comic Viewer can load either cbz or cbr files, which are
 zip and rar compressed archives, respectively. Comic Viewer is written in
