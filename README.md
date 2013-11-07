@@ -1,5 +1,5 @@
 # Please visit the website at
-# → [http://odie5533.github.io/Comic-Viewer/](http://odie5533.github.io/Comic-Viewer/) ←
+# [http://odie5533.github.io/Comic-Viewer/](http://odie5533.github.io/Comic-Viewer/)
 
 Description
 ===========
