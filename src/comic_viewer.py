@@ -47,7 +47,6 @@ class ComicViewer:
     def __init__(self, archive_name):
         self.fullscreen = False
         self.twoup = False
-        self.images = []
         self.xpos = self.ypos = 0
 
         self.filecacher = FileCacher()
@@ -156,31 +155,37 @@ class ComicViewer:
         return image
     
     def scale_image(self):
-        """ Loads the current image(s) and scales them, saving the result in
-        self.image """
-        self.images = [self.filecacher.load_image_relative(skip=n)
-                       for n in range(2 if self.twoup and not self.filecacher.at_end() else 1)]
-        width = sum(i.get_size()[0] for i in self.images)
+        """
+        Loads the current image(s) and scales them, saving the result in
+        self.image
+        """
+        n = 2 if self.twoup and not self.filecacher.at_end() else 1
+        images = [self.filecacher.load_image_relative(skip=i) for i in range(n)]
+        width = sum(i.get_size()[0] for i in images)
         client_width = self.GetClientRect().size[0]
-        if self.max_client_width and self.max_client_width < client_width and width < 2000:
+        if self.max_client_width and \
+                self.max_client_width < client_width and \
+                width < 2000:
+            # shrinks down only single-page images (< 2000 px)
             client_width = self.max_client_width
         
         # Fit oversized widths to client width
         if width > client_width:
             sf = float(client_width) / width # Scale Factor used to maintain AR
-            for n in range(len(self.images)):
-                i = self.images[n]
-                self.images[n] = self.scale_pyimage(i,
+            for n in range(len(images)):
+                i = images[n]
+                images[n] = self.scale_pyimage(i,
                                        (i.get_size()[0]*sf, i.get_size()[1]*sf))
         
-        width = sum(i.get_size()[0] for i in self.images)
-        max_height = max([i.get_size()[1] for i in self.images])
+        width = sum(i.get_size()[0] for i in images)
+        max_height = max([i.get_size()[1] for i in images])
         self.image = pygame.Surface((width, max_height))
         
+        # Blit images to self.image
         x = y = 0
-        for n in range(len(self.images)):
-            self.image.blit(self.images[n], (x,y))
-            x += self.images[n].get_size()[0]
+        for n in range(len(images)):
+            self.image.blit(images[n], (x, y))
+            x += images[n].get_size()[0]
         
 
     """
