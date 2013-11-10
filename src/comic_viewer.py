@@ -23,13 +23,13 @@ if os.name == 'nt':
     import win32gui
     import win32con
 else:
-    Tkinter=__import__("Tkinter")
-    tkFileDialog=__import__("tkFileDialog")
-    
+    Tkinter = __import__("Tkinter")
+    tkFileDialog = __import__("tkFileDialog")
 
-TICKS_FOR_STATS = 20 # ticks to keep stats onscreen after changing image
+TICKS_FOR_STATS = 20  # ticks to keep stats onscreen after changing image
 STATUS_FONT = "Georgia"
 STATUS_FONT_SIZE = 12
+
 
 class ComicViewer:
     def GetWindowRect(self):
@@ -48,6 +48,8 @@ class ComicViewer:
         self.fullscreen = False
         self.twoup = False
         self.xpos = self.ypos = 0
+        self.image = None
+        self.size = None
 
         self.filecacher = FileCacher()
 
@@ -60,7 +62,6 @@ class ComicViewer:
                                               pygame.RESIZABLE, 32)
         self.ticks_till_blit = None
         self.load_archive(archive_name)
-
 
         if os.name == 'nt':
             # Move and resize the window to a nice default aspect ratio
@@ -76,14 +77,14 @@ class ComicViewer:
             self.offset = (wrect[2]-wrect[0]-crect[2],
                            wrect[3]-wrect[1]-crect[3])
             aspect_ratio = (float(self.image.get_size()[0]) /
-                           self.image.get_size()[1])
+                            self.image.get_size()[1])
             INITIAL_WIDTH = 600
             ceil = lambda x: int(x) + 1 if x - int(x) > 0 else int(x)
             scale_height = ceil(INITIAL_WIDTH / aspect_ratio)
 
             win32gui.MoveWindow(hwnd, 0, 0,
                                 INITIAL_WIDTH + self.offset[0],
-                                scale_height + self.offset[1] - 1, True)
+                                scale_height + self.offset[1], True)
         
     def image_changed(self):
         """ Called whenever the displayed image is changed """
@@ -92,49 +93,50 @@ class ComicViewer:
 
     def blit_textbox(self, text):
         font = pygame.font.SysFont(STATUS_FONT, STATUS_FONT_SIZE)
-        lines = [font.render(l, 1, (0,0,0)) for l in text]
+        lines = [font.render(l, 1, (0, 0, 0)) for l in text]
         width = max([l.get_rect().width for l in lines]) + 20
         height = sum([l.get_rect().height for l in lines]) + 20
         left = self.GetClientRect().centerx-width/2
         top = self.GetClientRect().centery-height/2
         # Draw rectangle
-        rect = (left, top,width,height)
-        self.screen.fill((255,255,255), rect)
+        rect = (left, top, width, height)
+        self.screen.fill((255, 255, 255), rect)
         pygame.draw.rect(self.screen, 0, rect, 2)
 
         for i in range(len(lines)):
             self.screen.blit(lines[i],
-                    (left+10, top+10+i*font.get_height(), width, height))
-    """
-    Displays the help splash screen
-    """
+                            (left+10, top+10+i*font.get_height(),
+                                width, height))
+
     def blit_help(self):
-        # Draw text
-        text = ["Welcome to Comic Viewer!","","Shortcut keys:",
-                "  Shift: Show page number","  Page Down/Up: Flip pages",
+        """
+        Displays the help splash screen
+        """
+        text = ["Welcome to Comic Viewer!", "", "Shortcut keys:",
+                "  Shift: Show page number", "  Page Down/Up: Flip pages",
                 "  w: Fullscreen",
-                      "  Scroll wheel: Navigate page and flip pages",
+                "  Scroll wheel: Navigate page and flip pages",
                 "  Arrow keys: Navigate page and flip pages",
-                "  t: View two pages at once","",
+                "  t: View two pages at once", "",
                 "Press any key to close"]
         self.blit_textbox(text)
-                
 
-    """
-    Displays text of the cur / max page number in the bottomright
-    Crappy support for non-Windows, only works well fullscreen
-    """
     def blit_stats(self):
+        """
+        Displays text of the cur / max page number in the bottomright
+        Crappy support for non-Windows, only works well fullscreen
+        """
         end = len(self.filecacher)
         cur = self.filecacher.idx + 1
 
         font = pygame.font.SysFont(STATUS_FONT, STATUS_FONT_SIZE)
-        page_num = font.render("%d / %d" % (cur,end), 1, (0,0,0), (255,255,255))
+        page_num = font.render("%d / %d" % (cur, end),
+                               1, (0, 0, 0), (255, 255, 255))
         line_bot = page_num.get_rect()
         line_bot.bottomright = self.GetClientRect().bottomright
 
         status_text = os.path.basename(self.filecacher.filename)
-        status_line = font.render(status_text, True, (0,0,0), (255,255,255))
+        status_line = font.render(status_text, True, (0, 0, 0), (255, 255, 255))
         line_top = status_line.get_rect()
         line_top.bottomright = line_bot.topright
         self.screen.blit(page_num, line_bot)
@@ -143,8 +145,9 @@ class ComicViewer:
     def blit_stats_temporary(self):
         self.blit_stats()
         self.ticks_till_blit = TICKS_FOR_STATS
-    
-    def scale_pyimage(self, image, scale_sz):
+
+    @staticmethod
+    def scale_pyimage(image, scale_sz):
         scale_sz = [int(i) for i in scale_sz]
         if image.get_bitsize() == 8:
             image = image.convert(24)
@@ -171,11 +174,11 @@ class ComicViewer:
         
         # Fit oversized widths to client width
         if width > client_width:
-            sf = float(client_width) / width # Scale Factor used to maintain AR
+            sf = float(client_width) / width  # Scale Factor used to maintain AR
             for n in range(len(images)):
                 i = images[n]
-                images[n] = self.scale_pyimage(i,
-                                       (i.get_size()[0]*sf, i.get_size()[1]*sf))
+                scale_size = (i.get_size()[0]*sf, i.get_size()[1]*sf)
+                images[n] = self.scale_pyimage(i, scale_size)
         
         width = sum(i.get_size()[0] for i in images)
         max_height = max([i.get_size()[1] for i in images])
@@ -186,45 +189,43 @@ class ComicViewer:
         for n in range(len(images)):
             self.image.blit(images[n], (x, y))
             x += images[n].get_size()[0]
-        
 
-    """
-    Blits the current image onto the screen accounting for x and y offset,
-    along with scaling and centering
-    """
     def blit_image(self):
+        """
+        Blits the current image onto the screen accounting for x and y offset,
+        along with scaling and centering
+        """
         img_rect = self.image.get_rect()
-        img_rect.move_ip(self.xpos, self.ypos) # shift image according to scroll
+        img_rect.move_ip(self.xpos, self.ypos)  # shift img according to scroll
         # performs an x-center only if fullscreen on non-Windows OS
         # On Windows, however, always centers
         if self.fullscreen or os.name == 'nt':
             client_rect = self.GetClientRect()
             img_rect.centerx = client_rect.centerx
 
-        self.screen.fill(0) # fill screen w/ black                
-        self.screen.blit(self.image, img_rect) # blit image to specific coordinates
+        self.screen.fill(0)  # fill screen w/ black
+        # blit image to specific coordinates:
+        self.screen.blit(self.image, img_rect)
         img_size = self.image.get_size()
-        client_size = self.GetClientRect().size
-        # If we are not at the bottom and the image is bigger than the client
-        """
-        # Draw a green square:
-        if self.ypos != client_size[1] - img_size[1] and img_size[1] > client_size[1]:
-            #self.screen.fill(pygame.Color('green'), rect=((client_size[0]+img_size[0])/2,client_size[1]-10,10,10))
-        """
-        # Draw a green line
-        if self.ypos == client_size[1] - img_size[1] and img_size[1] > client_size[1]:
-            self.screen.fill(pygame.Color('green'), rect=(0,client_size[1]-1,client_size[0],1))
+        c_size = self.GetClientRect().size
+        # If we are not at the bottom and the image is bigger than the client:
+        if self.ypos == c_size[1] - img_size[1] and img_size[1] > c_size[1]:
+            # Green line:
+            rect = (0, c_size[1]-1, c_size[0], 1)
+            # Green square:
+            # rect = ((c_size[0]+img_size[0])/2, c_size[1]-10, 10, 10)
+            self.screen.fill(pygame.Color('green'), rect=rect)
             
         if self.ticks_till_blit:
             self.blit_stats()
 
-    """
-    Switches to a window by one of two methods
-    On Windows, it switches back to a RESIZABLE window from the NOFRAME and then
-    moves the window back into its previous position
-    On other OS, it recreates the window using the default size and position
-    """
     def create_window(self, size=None):
+        """
+        Switches to a window by one of two methods
+        On Windows, it switches back to a RESIZABLE window from the NOFRAME and
+        then moves the window back into its previous position
+        On other OS, it recreates the window using the default size and position
+        """
         size = self.size if size is None else size
         if os.name == 'nt':
             self.screen = pygame.display.set_mode(
@@ -240,13 +241,13 @@ class ComicViewer:
         self.image_changed()
         pygame.mouse.set_visible(True)
 
-    """
-    Switches to fullscreen by one of two methods
-    On Windows, it resizes the window and removes the border
-    On other OS, it quits the pygame display and creates a new SDL display
-      at location 0,0 using an environmental variable
-    """
     def create_fullscreen(self):
+        """
+        Switches to fullscreen by one of two methods
+        On Windows, it resizes the window and removes the border
+        On other OS, it quits the pygame display and creates a new SDL display
+          at location 0,0 using an environmental variable
+        """
         pygame.mouse.set_visible(False)
         if os.name == 'nt':
             # store last size for when returning to window mode
@@ -257,7 +258,8 @@ class ComicViewer:
 
             hwnd = pygame.display.get_wm_info()['window']
             w = win32con
-            #http://stackoverflow.com/questions/2382464/win32-full-screen-and-hiding-taskbar
+            #http://stackoverflow.com/questions/2382464/win32-full-screen-and-hi
+            #ding-taskbar
             #===================================================================
             # c = win32gui.GetWindowLong(hwnd, w.GWL_STYLE)
             # e = win32gui.GetWindowLong(hwnd, w.GWL_EXSTYLE)
@@ -281,7 +283,8 @@ class ComicViewer:
         self.xpos = self.ypos = 0
         self.image_changed()
 
-    def minimize_window(self):
+    @staticmethod
+    def minimize_window():
         pygame.display.iconify()
 
     def shift_image(self, x=0, y=0):
@@ -289,7 +292,7 @@ class ComicViewer:
         sz = self.GetClientRect().size
         self.xpos += x
         self.ypos += y
-        if self.ypos > 0: # should only be negative numbers
+        if self.ypos > 0:  # should only be negative numbers
             self.ypos = 0
         # don't go past the bottom
         if sz[1] - self.ypos >= img_sz[1]:
@@ -322,13 +325,13 @@ class ComicViewer:
         return 0 if scroll_pts == 0 else offscreen_height / scroll_pts
 
     def scroll_image_up(self, percent=0.4):
-        if self.ypos == 0: # Scrolling up while at the top of an image
+        if self.ypos == 0:  # Scrolling up while at the top of an image
             self.prev_image(bottom=True)
             return
         img_sz = self.image.get_size()
         client_sz = self.GetClientRect().size
-        scroll_height = self.calc_scroll_height(img_sz[1], client_sz[1], percent)
-        self.shift_image(y=scroll_height)
+        self.shift_image(y=self.calc_scroll_height(img_sz[1],
+                                                   client_sz[1], percent))
 
     def scroll_image_down(self, percent=0.4):
         img_sz = self.image.get_size()
@@ -344,17 +347,15 @@ class ComicViewer:
                 return
             self.next_image()
             return
-        scroll_height = self.calc_scroll_height(img_sz[1], client_sz[1], percent)
+        scroll_height = self.calc_scroll_height(img_sz[1], client_sz[1],
+                                                percent)
         self.shift_image(y=-scroll_height)
 
     def browse_new_archive(self):
-        filename = None
+        file_filter = "Comic archives (*.cbz *.cbr)\0*.cbr;*.cbz\0" \
+                      "All Files (*.*)\0*.*\0"
         if os.name == 'nt':
-            try:
-                filename,_,_ = win32gui.GetOpenFileNameW(
-                    Filter="Comic archives (*.cbz *.cbr)\0*.cbr;*.cbz\0All Files (*.*)\0*.*\0")
-            except Exception:
-                pass
+            filename, _, _ = win32gui.GetOpenFileNameW(Filter=file_filter)
             hwnd = pygame.display.get_wm_info()['window']
             win32gui.SetFocus(hwnd)
         else:
@@ -391,7 +392,7 @@ class ComicViewer:
         
     def prev_image(self, bottom=False):
         skip = 2 if self.twoup else 1
-        home = self.filecacher.at_home() # needs to be before we progress_image
+        home = self.filecacher.at_home()  # needs to be before we progress_image
         self.filecacher.progress_image(False, skip)
         self.xpos = 0
         self.ypos = 0
@@ -426,12 +427,11 @@ class ComicViewer:
             return
         p = [c for c in widths if c > w]
         self.max_client_width = p[0] if p else None
-        
 
-    """
-    Handles key presses and starts preload threads
-    """
     def run(self):
+        """
+        Handles key presses and starts preload threads
+        """
         moving = None
         ticks_held = 0
         fast_movement = False
@@ -478,12 +478,11 @@ class ComicViewer:
             if fast_movement and ticks_held > 3:
                 ticks_held = 0
                 moving()
-                
-            """
+
             # Alternative behavior:
-            if any([pygame.key.get_pressed()[k] for k in [pygame.K_RSHIFT,
-                                                          pygame.K_LSHIFT]]):
-                self.blit_stats_temporary()"""
+            #if any([pygame.key.get_pressed()[k] for k in [pygame.K_RSHIFT,
+            #                                              pygame.K_LSHIFT]]):
+            #    self.blit_stats_temporary()
 
             ##################
             # Event Handling #
@@ -547,9 +546,9 @@ class ComicViewer:
                     moving = None
                     fast_movement = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 4: # scrollwheel up
+                    if event.button == 4:  # scrollwheel up
                         self.scroll_image_up(percent=0.2)
-                    elif event.button == 5: # scrollwheel down
+                    elif event.button == 5:  # scrollwheel down
                         self.scroll_image_down(percent=0.2)
                 elif event.type == pygame.VIDEORESIZE:
                     # New window size means the image needs to be rescaled

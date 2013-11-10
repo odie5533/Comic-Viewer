@@ -1,2 +1,7 @@
 *.pyc
+*.exe
+*.log
+*.spec
 private/
+src/build
+src/dist
