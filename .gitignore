@@ -1,5 +1,4 @@
 *.pyc
-*.exe
 *.log
 *.spec
 private/

@@ -13,7 +13,10 @@ images and scrolling around on an image
 """
 
 import pygame
-import pygame._view
+try:
+    import pygame._view
+except ImportError:
+    pass
 import os
 import sys
 import re

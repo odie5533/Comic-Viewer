@@ -1,4 +1,5 @@
-pyinstaller-2.0\pyinstaller.py --onefile --noconsole -i comic.ico comic_viewer.py
+call .virt1\Scripts\activate
+pyinstaller onefile.spec
 REM Copy unrar.exe so the program works immediately and can be debugged
 copy /Y static_dist\* dist\
 pause

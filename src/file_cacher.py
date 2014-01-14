@@ -66,7 +66,8 @@ class FileCacher:
                     hint = name.decode('utf-8').encode('ascii','ignore')
                     self.images[name] = pygame.image.load(sio, hint)
             except pygame.error:
-                print "Unabled to load image:", name
+                print "Unable to load image:", name
+                print pygame.get_error()
                 self.order.pop(idx)
                 return None
         return self.images[name]
