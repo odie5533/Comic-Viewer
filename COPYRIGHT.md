@@ -23,19 +23,42 @@ This program makes use of third party software released under different
 liceneses. The source code for each is available from their respective websites,
 along with detailed license information.
 
-Python is released under the Python Software Foundation license.
-    <http://www.python.org/>    
-pygame is released under the GNU Lesser General Public License version 2.1
+* Python is released under the Python Software Foundation license.
+    <http://www.python.org/>
+* pygame is released under the GNU Lesser General Public License version 2.1
+    This license applies to redist/pygame-1.9.2a0.win32-py2.7.exe and compiled
+	binaries.
+    See lgpl-2.1.txt for the license terms.
     <http://www.pygame.org/>
-Simple DirectMedia Layer library is released under the GNU Lesser Public License
-    version 2.1. <http://www.libsdl.org/>
-py2exe is released under the MIT License <http://www.py2exe.org/>
-pywin32 is released under the New BSD License
+* Simple DirectMedia Layer library is released under the GNU Lesser Public
+    License version 2.1. See lgpl-2.1.txt for the license terms.
+	<http://www.libsdl.org/>
+* pywin32 is released under the New BSD License
     <http://starship.python.net/crew/mhammond/win32/Downloads.html>
+* NSIS is licensed under the zlib/libpng license. This license applies to
+    redist/nsis-*.exe. For the license terms, start the installer.
+	
+py2exe license
+==============
+py2exe is released under the MIT License <http://www.py2exe.org/>
 
-PyInstaller license
-===================
-This license applies to files in the directory pyinstaller-2.0/
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 rarfile license
 ===============

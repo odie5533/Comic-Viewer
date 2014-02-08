@@ -397,8 +397,7 @@ class ComicViewer:
         skip = 2 if self.twoup else 1
         home = self.filecacher.at_home()  # needs to be before we progress_image
         self.filecacher.progress_image(False, skip)
-        self.xpos = 0
-        self.ypos = 0
+        self.xpos = self.ypos = 0
         self.scale_image()
         if bottom and not home:
             self.shift_image_to_bottom()
@@ -411,7 +410,8 @@ class ComicViewer:
             self.filecacher.goto_end()
         else:
             self.filecacher.goto_home()
-        self.image_changed()
+        self.xpos = self.ypos = 0
+        self.image_changed() # scale and blit
         self.blit_stats_temporary()
         
     def decrease_max_single_width(self):
@@ -554,6 +554,7 @@ class ComicViewer:
                     elif event.button == 5:  # scrollwheel down
                         self.scroll_image_down(percent=0.2)
                 elif event.type == pygame.VIDEORESIZE:
+                    print "size changing..."
                     # New window size means the image needs to be rescaled
                     self.image_changed()
 
